@@ -25,24 +25,27 @@ app.post("/api/send-otp", async (req, res) => {
   try {
     // Send OTP via Interakt WhatsApp API
     await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
-      {
-        countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
-        template: {
-          name: "otp_verification", // approved template
-          languageCode: "en",
-          bodyValues: [otp.toString()]
-        }
-      },
-      {
-        headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+  "https://api.interakt.ai/v1/public/message/",
+  {
+    countryCode: "91",
+    phoneNumber: phone,
+    type: "Template",
+    template: {
+      name: "otp_verification",
+      languageCode: "en",
+      bodyValues: [otp.toString()],
+      buttonValues: [
+        [otp.toString()] // index 0 button expects 1 variable
+      ]
+    }
+  },
+  {
+    headers: {
+      Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  }
+);
 
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
@@ -76,3 +79,4 @@ app.post("/api/verify-otp", (req, res) => {
 // 🔹 Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Backend running on port", PORT));
+
