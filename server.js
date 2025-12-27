@@ -23,30 +23,30 @@ app.post("/api/send-otp", async (req, res) => {
   OTP_STORE[phone] = { otp, expires };
 
   try {
-    await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
-      {
-        countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
+ await axios.post(
+  "https://api.interakt.ai/v1/public/message/",
+  {
+    countryCode: "91",
+    phoneNumber: phone,
 
-        // 🔥 REQUIRED FOR OTP TEMPLATES
-        category: "AUTHENTICATION",
+    // 🔥 THIS IS THE KEY FIX
+    type: "Authentication",
 
-        template: {
-          name: "otp_verification",
-          languageCode: "en",
-          bodyValues: [otp],
-          buttonValues: [[otp]]
-        }
-      },
-      {
-        headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    template: {
+      name: "otp_verification",
+      languageCode: "en",
+      bodyValues: [otp],
+      buttonValues: [[otp]]
+    }
+  },
+  {
+    headers: {
+      Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  }
+);
+;
 
     res.json({ success: true });
   } catch (err) {
@@ -85,3 +85,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("Backend running on port", PORT);
 });
+
