@@ -11,53 +11,38 @@ const OTP_STORE = {}; // in-memory OTP storage (replace with Redis/DB for produc
 
 // 🔹 SEND OTP
 app.post("/api/send-otp", async (req, res) => {
-  const { name, phone, email, city } = req.body;
-
-  if (!/^[6-9]\d{9}$/.test(phone)) {
-    return res.status(400).json({ success: false, message: "Invalid phone number" });
-  }
-
+  const { phone } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
-  const expires = Date.now() + 5 * 60 * 1000; // 5 min validity
-
-  OTP_STORE[phone] = { otp, expires };
 
   try {
-    // Send OTP via Interakt WhatsApp API
- await axios.post(
-  "https://api.interakt.ai/v1/public/message/",
-  {
-    countryCode: "91",
-    phoneNumber: phone,
-    type: "Template",
-    template: {
-      name: "otp_verification",
-      languageCode: "en",
+    await axios.post(
+      "https://api.interakt.ai/v1/public/message/",
+      {
+        countryCode: "91",
+        phoneNumber: phone,
+        type: "Template",
+        template: {
+          name: "otp_verification",
+          languageCode: "en",
+          bodyValues: [otp.toString()],
+          buttonValues: [[otp.toString()]]
+        }
+      },
+      {
+        headers: {
+          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-      // OTP value
-      bodyValues: [otp.toString()],
-
-      // REQUIRED for authentication templates
-      buttonValues: [
-        [otp.toString()]
-      ]
-    }
-  },
-  {
-    headers: {
-      Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-      "Content-Type": "application/json"
-    }
-  }
-);
-
-
-    res.json({ success: true, message: "OTP sent successfully" });
+    res.json({ success: true });
   } catch (err) {
-    console.error("OTP error:", err.response?.data || err.message);
-    res.status(500).json({ success: false, message: "Failed to send OTP" });
+    console.error(err.response?.data);
+    res.status(500).json({ success: false });
   }
 });
+
 
 // 🔹 VERIFY OTP
 app.post("/api/verify-otp", (req, res) => {
@@ -84,5 +69,6 @@ app.post("/api/verify-otp", (req, res) => {
 // 🔹 Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Backend running on port", PORT));
+
 
 
