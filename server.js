@@ -15,26 +15,27 @@ app.post("/api/send-otp", async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000);
 
   try {
-    await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
-      {
-        countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
-        template: {
-          name: "otp_verification",
-          languageCode: "en",
-          bodyValues: [otp.toString()],
-          buttonValues: [[otp.toString()]]
-        }
-      },
-      {
-        headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+ await axios.post(
+  "https://api.interakt.ai/v1/public/message/",
+  {
+    countryCode: "91",
+    phoneNumber: phone,
+    type: "Template",
+    template: {
+      name: "otp_verification",
+      languageCode: "en",
+      bodyValues: [otp.toString()],
+      buttonValues: [[otp.toString()]]
+    }
+  },
+  {
+    headers: {
+      Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  }
+);
+
 
     res.json({ success: true });
   } catch (err) {
@@ -69,6 +70,7 @@ app.post("/api/verify-otp", (req, res) => {
 // 🔹 Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Backend running on port", PORT));
+
 
 
 
