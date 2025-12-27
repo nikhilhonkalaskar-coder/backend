@@ -23,21 +23,16 @@ app.post("/api/send-otp", async (req, res) => {
   OTP_STORE[phone] = { otp, expires };
 
   try {
- await axios.post(
+await axios.post(
   "https://api.interakt.ai/v1/public/message/",
   {
     countryCode: "91",
     phoneNumber: phone,
     type: "Template",
-
     template: {
       name: "otp_verification",
       languageCode: "en",
-
-      // ❌ REMOVE bodyValues completely
-      buttonValues: [
-        [otp.toString()]
-      ]
+      buttonValues: [[otp.toString()]]
     }
   },
   {
@@ -47,6 +42,7 @@ app.post("/api/send-otp", async (req, res) => {
     }
   }
 );
+
     res.json({ success: true });
   } catch (err) {
     console.error("Interakt error:", err.response?.data);
@@ -84,5 +80,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("Backend running on port", PORT);
 });
+
 
 
