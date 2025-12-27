@@ -28,15 +28,16 @@ app.post("/api/send-otp", async (req, res) => {
   {
     countryCode: "91",
     phoneNumber: phone,
-
-    // 🔥 THIS IS THE KEY FIX
-    type: "Authentication",
+    type: "Template",
 
     template: {
       name: "otp_verification",
       languageCode: "en",
-      bodyValues: [otp],
-      buttonValues: [[otp]]
+
+      // ❌ REMOVE bodyValues completely
+      buttonValues: [
+        [otp.toString()]
+      ]
     }
   },
   {
@@ -46,8 +47,6 @@ app.post("/api/send-otp", async (req, res) => {
     }
   }
 );
-;
-
     res.json({ success: true });
   } catch (err) {
     console.error("Interakt error:", err.response?.data);
@@ -85,4 +84,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("Backend running on port", PORT);
 });
+
 
