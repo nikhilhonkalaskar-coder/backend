@@ -1,28 +1,29 @@
-
+// backend/index.js
 import express from "express";
 import cors from "cors";
 import axios from "axios";
 
 const app = express();
-app.use(cors());
+app.use(cors()); // allow requests from any origin
 app.use(express.json());
 
-const OTP_STORE = {}; // { phone: { otp, expires } }
+const OTP_STORE = {}; // in-memory OTP storage (replace with Redis/DB for production)
 
 // 🔹 SEND OTP
 app.post("/api/send-otp", async (req, res) => {
   const { name, phone, email, city } = req.body;
 
   if (!/^[6-9]\d{9}$/.test(phone)) {
-    return res.status(400).json({ success: false });
+    return res.status(400).json({ success: false, message: "Invalid phone number" });
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000);
-  const expires = Date.now() + 5 * 60 * 1000; // 5 min
+  const expires = Date.now() + 5 * 60 * 1000; // 5 min validity
 
   OTP_STORE[phone] = { otp, expires };
 
   try {
+    // Send OTP via Interakt WhatsApp API
     await axios.post(
       "https://api.interakt.ai/v1/public/message/",
       {
@@ -30,7 +31,7 @@ app.post("/api/send-otp", async (req, res) => {
         phoneNumber: phone,
         type: "Template",
         template: {
-          name: "otp_verification", // APPROVED TEMPLATE
+          name: "otp_verification", // approved template
           languageCode: "en",
           bodyValues: [otp.toString()]
         }
@@ -43,44 +44,35 @@ app.post("/api/send-otp", async (req, res) => {
       }
     );
 
-    res.json({ success: true });
+    res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
-    console.error("OTP error", err.response?.data);
-    res.status(500).json({ success: false });
+    console.error("OTP error:", err.response?.data || err.message);
+    res.status(500).json({ success: false, message: "Failed to send OTP" });
   }
 });
 
 // 🔹 VERIFY OTP
 app.post("/api/verify-otp", (req, res) => {
   const { phone, otp } = req.body;
-
   const record = OTP_STORE[phone];
 
-  if (!record) {
-    return res.json({ verified: false });
-  }
+  if (!record) return res.json({ verified: false, message: "OTP not found" });
 
   if (Date.now() > record.expires) {
     delete OTP_STORE[phone];
-    return res.json({ verified: false });
+    return res.json({ verified: false, message: "OTP expired" });
   }
 
-  if (record.otp != otp) {
-    return res.json({ verified: false });
-  }
+  if (record.otp != otp) return res.json({ verified: false, message: "Wrong OTP" });
 
   delete OTP_STORE[phone];
 
+  // Redirect WhatsApp chat
   const redirectUrl = `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=Hello%20I%20am%20verified`;
 
-  res.json({
-    verified: true,
-    redirectUrl
-  });
+  res.json({ verified: true, redirectUrl });
 });
 
-app.listen(process.env.PORT, () => {
-  console.log("Server running on port", process.env.PORT);
-});
-
-
+// 🔹 Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log("Backend running on port", PORT));
