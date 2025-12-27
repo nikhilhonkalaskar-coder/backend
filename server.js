@@ -44,6 +44,9 @@ app.post("/api/send-otp", async (req, res) => {
           name: "otp_verification",
           languageCode: "en",
           bodyValues: [otp],
+          buttonValues: [
+        [String(otp)]
+      ]
          
         }
       },
@@ -118,5 +121,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("Backend running on port", PORT);
 });
+
 
 
