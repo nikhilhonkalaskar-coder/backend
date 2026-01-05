@@ -77,7 +77,7 @@ app.post("/api/send-otp", async (req, res) => {
 // ==============================
 // VERIFY OTP
 // ==============================
-app.post("/api/verify-otp", async (req, res) => {
+app.post("/api/verify-otp", (req, res) => {
   const { phone, otp, name, email, city } = req.body;
 
   const record = OTP_STORE[phone];
@@ -97,46 +97,27 @@ app.post("/api/verify-otp", async (req, res) => {
 
   delete OTP_STORE[phone];
 
-  try {
-    // ✅ SEND TO ADMIN PERSONAL WHATSAPP NUMBER
-    await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
-      {
-        countryCode: "91",
-        phoneNumber: process.env.ADMIN_WHATSAPP_NUMBER, // ✅ CORRECT
-        type: "Template",
-        template: {
-          name: "verified_lead_details",
-          languageCode: "en",
-          bodyValues: [
-            name,
-            phone,
-            email || "N/A",
-            city || "N/A"
-          ]
-        }
-      },
-      {
-        headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+  // 👇 WhatsApp pre-filled message
+  const message = `
+*Tushar Bhumkar Institute*
 
-    res.json({
-      verified: true,
-      message: "OTP verified & lead sent to admin WhatsApp"
-    });
+*Verified Lead*
+Name: ${name}
+Mobile: ${phone}
+Email: ${email || "N/A"}
+City: ${city || "N/A"}
+`;
 
-  } catch (err) {
-    console.error("WhatsApp send error:", err.response?.data || err.message);
-    res.status(500).json({
-      verified: true,
-      message: "OTP verified but WhatsApp sending failed"
-    });
-  }
+  const redirectUrl =
+    `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=` +
+    encodeURIComponent(message);
+
+  res.json({
+    verified: true,
+    redirectUrl
+  });
 });
+
 
 // ==============================
 // START SERVER
@@ -145,7 +126,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Backend running on port ${PORT}`);
 });
-
-
-
-
