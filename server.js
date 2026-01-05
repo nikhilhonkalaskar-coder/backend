@@ -78,43 +78,46 @@ app.post("/api/send-otp", async (req, res) => {
 // VERIFY OTP
 // ==============================
 app.post("/api/verify-otp", (req, res) => {
-  const { phone, otp } = req.body;
+  const { phone, otp, name, email, city } = req.body;
 
   const record = OTP_STORE[phone];
 
   if (!record) {
-    return res.json({
-      verified: false,
-      message: "OTP not found"
-    });
+    return res.json({ verified: false, message: "OTP not found" });
   }
 
   if (Date.now() > record.expires) {
     delete OTP_STORE[phone];
-    return res.json({
-      verified: false,
-      message: "OTP expired"
-    });
+    return res.json({ verified: false, message: "OTP expired" });
   }
 
   if (record.otp !== otp) {
-    return res.json({
-      verified: false,
-      message: "Wrong OTP"
-    });
+    return res.json({ verified: false, message: "Wrong OTP" });
   }
 
   delete OTP_STORE[phone];
 
+  // 👇 WhatsApp pre-filled message
+  const message = `
+*Tushar Bhumkar Institute*
+
+*Verified Lead*
+Name: ${name}
+Mobile: ${phone}
+Email: ${email || "N/A"}
+City: ${city || "N/A"}
+`;
+
   const redirectUrl =
     `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=` +
-    encodeURIComponent("Hello, I am verified");
+    encodeURIComponent(message);
 
   res.json({
     verified: true,
     redirectUrl
   });
 });
+
 
 // ==============================
 // START SERVER
@@ -123,4 +126,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Backend running on port ${PORT}`);
 });
+
 
