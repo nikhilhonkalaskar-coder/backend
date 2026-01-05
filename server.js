@@ -98,12 +98,12 @@ app.post("/api/verify-otp", async (req, res) => {
   delete OTP_STORE[phone];
 
   try {
-    // ✅ AUTO SEND LEAD DETAILS TO BUSINESS WHATSAPP
+    // ✅ SEND TO ADMIN PERSONAL WHATSAPP NUMBER
     await axios.post(
       "https://api.interakt.ai/v1/public/message/",
       {
         countryCode: "91",
-        phoneNumber: process.env.WHATSAPP_CHAT_NUMBER, // YOUR BUSINESS NUMBER
+        phoneNumber: process.env.ADMIN_WHATSAPP_NUMBER, // ✅ CORRECT
         type: "Template",
         template: {
           name: "verified_lead_details",
@@ -126,13 +126,13 @@ app.post("/api/verify-otp", async (req, res) => {
 
     res.json({
       verified: true,
-      message: "OTP verified & lead sent to WhatsApp"
+      message: "OTP verified & lead sent to admin WhatsApp"
     });
 
   } catch (err) {
     console.error("WhatsApp send error:", err.response?.data || err.message);
     res.status(500).json({
-      verified: true, // OTP verified anyway
+      verified: true,
       message: "OTP verified but WhatsApp sending failed"
     });
   }
@@ -145,6 +145,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Backend running on port ${PORT}`);
 });
+
 
 
 
