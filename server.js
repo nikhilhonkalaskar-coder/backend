@@ -1,16 +1,19 @@
 import express from "express";
 import cors from "cors";
 import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // ==============================
-// In-memory OTP store
+// In-memory OTP Store
 // ==============================
-const OTP_STORE = {}; 
-// format: { phone: { otp, expires } }
+const OTP_STORE = {};
+// format => { phone: { otp, expires } }
 
 // ==============================
 // SEND OTP
@@ -18,7 +21,7 @@ const OTP_STORE = {};
 app.post("/api/send-otp", async (req, res) => {
   const { phone } = req.body;
 
-  // Validate phone
+  // Validate Indian mobile number
   if (!/^[6-9]\d{9}$/.test(phone)) {
     return res.status(400).json({
       success: false,
@@ -26,12 +29,13 @@ app.post("/api/send-otp", async (req, res) => {
     });
   }
 
-  // Generate OTP
+  // Generate 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-  // Store OTP
   OTP_STORE[phone] = { otp, expires };
+
+  console.log("Generated OTP:", otp);
 
   try {
     await axios.post(
@@ -41,13 +45,12 @@ app.post("/api/send-otp", async (req, res) => {
         phoneNumber: phone,
         type: "Template",
         template: {
-          name: "otp_verification",
+          name: "otp_verification",      // MUST MATCH TEMPLATE NAME
           languageCode: "en",
           bodyValues: [otp],
-          buttonValues: [
-        [String(otp)]
-      ]
-         
+          buttonValues: {
+            "0": [otp]                  // 👈 REQUIRED FORMAT
+          }
         }
       },
       {
@@ -64,9 +67,11 @@ app.post("/api/send-otp", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Interakt error:", err.response?.data);
+    console.error("Interakt error:", err.response?.data || err.message);
+
     res.status(500).json({
       success: false,
+      message: "Failed to send OTP",
       error: err.response?.data
     });
   }
@@ -77,6 +82,7 @@ app.post("/api/send-otp", async (req, res) => {
 // ==============================
 app.post("/api/verify-otp", (req, res) => {
   const { phone, otp } = req.body;
+
   const record = OTP_STORE[phone];
 
   if (!record) {
@@ -101,7 +107,6 @@ app.post("/api/verify-otp", (req, res) => {
     });
   }
 
-  // OTP correct
   delete OTP_STORE[phone];
 
   const redirectUrl =
@@ -119,8 +124,5 @@ app.post("/api/verify-otp", (req, res) => {
 // ==============================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log("Backend running on port", PORT);
+  console.log(`✅ Backend running on port ${PORT}`);
 });
-
-
-
