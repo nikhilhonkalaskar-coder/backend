@@ -20,13 +20,14 @@ const normalizePhone = (phone) => {
   return phone.startsWith("91") ? phone.slice(2) : phone;
 };
 
+// Create a reusable axios instance for Interakt API calls
 const interaktRequest = axios.create({
   baseURL: "https://api.interakt.ai/v1/public/message/",
   timeout: 30000,
- headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+  headers: {
+    Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+    "Content-Type": "application/json"
+  }
 });
 
 // ==============================
@@ -48,22 +49,20 @@ app.post("/api/send-otp", async (req, res) => {
 
   console.log("Generated OTP:", otp);
 
- try {
-    await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
-      {
-        countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
-        template: {
-          name: "otp_verification",      // MUST MATCH TEMPLATE NAME
-          languageCode: "en",
-          bodyValues: [otp],
-          buttonValues: {
-            "0": [otp]                  // 👈 REQUIRED FORMAT
-          }
+  try {
+    await interaktRequest.post("", {
+      countryCode: "91",
+      phoneNumber: phone,
+      type: "Template",
+      template: {
+        name: "otp_verification", // MUST MATCH TEMPLATE NAME
+        languageCode: "en",
+        bodyValues: [otp],
+        buttonValues: {
+          "0": [otp] // Required for button variables in template
         }
-      },
+      }
+    });
 
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
@@ -146,5 +145,3 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
-
-
