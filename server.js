@@ -1,16 +1,19 @@
 import express from "express";
 import cors from "cors";
 import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // ==============================
-// In-memory OTP Store
+// In-memory Stores (use DB later)
 // ==============================
-const OTP_STORE = {};
-// format => { phone: { otp, expires } }
+const OTP_STORE = {};        // { phone: { otp, expires } }
+const VERIFIED_USERS = {};  // { phone: true }
 
 // ==============================
 // SEND OTP
@@ -18,7 +21,6 @@ const OTP_STORE = {};
 app.post("/api/send-otp", async (req, res) => {
   const { phone } = req.body;
 
-  // Validate Indian mobile number
   if (!/^[6-9]\d{9}$/.test(phone)) {
     return res.status(400).json({
       success: false,
@@ -26,9 +28,8 @@ app.post("/api/send-otp", async (req, res) => {
     });
   }
 
-  // Generate 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
+  const expires = Date.now() + 5 * 60 * 1000;
 
   OTP_STORE[phone] = { otp, expires };
 
@@ -42,11 +43,11 @@ app.post("/api/send-otp", async (req, res) => {
         phoneNumber: phone,
         type: "Template",
         template: {
-          name: "otp_verification",      // MUST MATCH TEMPLATE NAME
+          name: "otp_verification",
           languageCode: "en",
           bodyValues: [otp],
           buttonValues: {
-            "0": [otp]                  // 👈 REQUIRED FORMAT
+            "0": [otp]
           }
         }
       },
@@ -62,14 +63,12 @@ app.post("/api/send-otp", async (req, res) => {
       success: true,
       message: "OTP sent successfully"
     });
-
   } catch (err) {
-    console.error("Interakt error:", err.response?.data || err.message);
+    console.error("OTP error:", err.response?.data || err.message);
 
     res.status(500).json({
       success: false,
-      message: "Failed to send OTP",
-      error: err.response?.data
+      message: "Failed to send OTP"
     });
   }
 });
@@ -77,8 +76,8 @@ app.post("/api/send-otp", async (req, res) => {
 // ==============================
 // VERIFY OTP
 // ==============================
-app.post("/api/verify-otp", (req, res) => {
-  const { phone, otp, name, email, city } = req.body;
+app.post("/api/verify-otp", async (req, res) => {
+  const { phone, otp, name } = req.body;
 
   const record = OTP_STORE[phone];
 
@@ -96,33 +95,93 @@ app.post("/api/verify-otp", (req, res) => {
   }
 
   delete OTP_STORE[phone];
+  VERIFIED_USERS[phone] = true;
 
-  // 👇 WhatsApp pre-filled message
-  const message = `
-*Tushar Bhumkar Institute*
-
-*Verified Lead*
-Name: ${name}
-Mobile: ${phone}
-Email: ${email || "N/A"}
-City: ${city || "N/A"}
-`;
-
-  const redirectUrl =
-    `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=` +
-    encodeURIComponent(message);
+  // ✅ Send "Chat Unlocked" message
+  try {
+    await axios.post(
+      "https://api.interakt.ai/v1/public/message/",
+      {
+        countryCode: "91",
+        phoneNumber: phone,
+        type: "Template",
+        template: {
+          name: "chat_unlocked",
+          languageCode: "en",
+          bodyValues: [name || "there"]
+        }
+      },
+      {
+        headers: {
+          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  } catch (e) {
+    console.error("Chat unlocked error:", e.message);
+  }
 
   res.json({
     verified: true,
-    redirectUrl
+    message: "OTP verified successfully"
   });
 });
 
+// ==============================
+// INTERAKT WEBHOOK
+// Auto-reply if NOT verified
+// ==============================
+app.post("/api/interakt/webhook", async (req, res) => {
+  try {
+    const event = req.body;
+
+    // Only incoming user messages
+    if (
+      event.type !== "message" ||
+      event.message?.direction !== "incoming"
+    ) {
+      return res.sendStatus(200);
+    }
+
+    const phone = event.message?.from?.phone;
+    if (!phone) return res.sendStatus(200);
+
+    const isVerified = VERIFIED_USERS[phone];
+
+    if (!isVerified) {
+      // 🔒 Not verified → send auto reply
+      await axios.post(
+        "https://api.interakt.ai/v1/public/message/",
+        {
+          countryCode: "91",
+          phoneNumber: phone,
+          type: "Template",
+          template: {
+            name: "complete_otp_first",
+            languageCode: "en"
+          }
+        },
+        {
+          headers: {
+            Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Webhook error:", err.message);
+    res.sendStatus(200);
+  }
+});
 
 // ==============================
 // START SERVER
 // ==============================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`✅ Backend running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
