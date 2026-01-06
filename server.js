@@ -23,10 +23,10 @@ const normalizePhone = (phone) => {
 const interaktRequest = axios.create({
   baseURL: "https://api.interakt.ai/v1/public/message/",
   timeout: 30000,
-  headers: {
-    Authorization: process.env.INTERAKT_API_KEY, // MUST include "Basic "
-    "Content-Type": "application/json"
-  }
+ headers: {
+          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+          "Content-Type": "application/json"
+        }
 });
 
 // ==============================
@@ -141,3 +141,4 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
