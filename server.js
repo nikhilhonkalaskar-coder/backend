@@ -122,14 +122,15 @@ City: ${city || "N/A"}
   });
 });
 
+
 // ==============================
-// INTERAKT WEBHOOK (FIXED)
+// INTERAKT WEBHOOK (FINAL FIX)
 // ==============================
 app.post("/api/interakt/webhook", async (req, res) => {
   try {
     console.log("🔔 WEBHOOK PAYLOAD:", JSON.stringify(req.body, null, 2));
 
-    // 1️⃣ Only process incoming customer messages
+    // 1️⃣ Only incoming user messages
     if (req.body.type !== "message_received") {
       return res.sendStatus(200);
     }
@@ -140,27 +141,27 @@ app.post("/api/interakt/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // 2️⃣ Get phone number
-    let phone = data.customer?.phone_number;
-    phone = normalizePhone(phone);
-
+    // 2️⃣ IMPORTANT: use channel_phone_number
+    let phone = data.customer?.channel_phone_number; // 919XXXXXXXXX
     if (!phone) return res.sendStatus(200);
+
+    // Normalize to 10 digits for storage check
+    const shortPhone = normalizePhone(phone);
 
     console.log("📞 Incoming message from:", phone);
 
-    // 3️⃣ If user NOT verified, auto-reply
-    if (!VERIFIED_USERS[phone]) {
+    // 3️⃣ If NOT verified → send TEXT message
+    if (!VERIFIED_USERS[shortPhone]) {
       await interaktRequest.post("", {
         countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
-        template: {
-          name: "complete_otp_first",
-          languageCode: "en"
+        phoneNumber: phone.replace(/^91/, ""),
+        type: "Text",
+        text: {
+          body: "⚠️ Please complete OTP verification on the website to continue chatting with our team."
         }
       });
 
-      console.log("🚫 Auto-reply sent (OTP not verified)");
+      console.log("🚫 Auto text reply sent");
     }
 
     res.sendStatus(200);
@@ -173,6 +174,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
 
 
 
+
 // ==============================
 // START SERVER
 // ==============================
@@ -181,6 +183,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
