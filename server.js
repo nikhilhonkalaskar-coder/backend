@@ -23,7 +23,6 @@ const normalizePhone = (phone) => {
 // Create a reusable axios instance for Interakt API calls
 const interaktRequest = axios.create({
   baseURL: "https://api.interakt.ai/v1/public/message/",
-  timeout: 30000,
   headers: {
     Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
     "Content-Type": "application/json"
@@ -145,3 +144,4 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
