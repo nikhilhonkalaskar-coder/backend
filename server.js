@@ -104,7 +104,6 @@ app.post("/api/verify-otp", async (req, res) => {
   const message = `
 *Tushar Bhumkar Institute*
 
-*Verified Lead*
 Name: ${name}
 Mobile: ${phone}
 Email: ${email || "N/A"}
@@ -183,6 +182,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
