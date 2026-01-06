@@ -128,25 +128,29 @@ City: ${city || "N/A"}
 // ==============================
 app.post("/api/interakt/webhook", async (req, res) => {
   try {
-    const event = req.body;
+    console.log("🔔 WEBHOOK PAYLOAD:", JSON.stringify(req.body, null, 2));
 
-    if (event.type !== "message" || event.message?.direction !== "incoming") {
-      return res.sendStatus(200);
-    }
+    const events = req.body?.events || [];
 
-    let phone = normalizePhone(event.message?.from?.phone);
-    if (!phone) return res.sendStatus(200);
+    for (const evt of events) {
+      if (evt.type !== "message_created") continue;
+      if (evt.message?.direction !== "incoming") continue;
 
-    if (!VERIFIED_USERS[phone]) {
-      await interaktRequest.post("", {
-        countryCode: "91",
-        phoneNumber: phone,
-        type: "Template",
-        template: {
-          name: "complete_otp_first",
-          languageCode: "en"
-        }
-      });
+      let phone = evt.message?.from?.phone;
+      phone = normalizePhone(phone);
+      if (!phone) continue;
+
+      if (!VERIFIED_USERS[phone]) {
+        await interaktRequest.post("", {
+          countryCode: "91",
+          phoneNumber: phone,
+          type: "Template",
+          template: {
+            name: "complete_otp_first",
+            languageCode: "en"
+          }
+        });
+      }
     }
 
     res.sendStatus(200);
@@ -157,6 +161,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
 });
 
 
+
 // ==============================
 // START SERVER
 // ==============================
@@ -165,5 +170,6 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
