@@ -122,35 +122,45 @@ City: ${city || "N/A"}
   });
 });
 
-
 // ==============================
-// INTERAKT WEBHOOK
+// INTERAKT WEBHOOK (FIXED)
 // ==============================
 app.post("/api/interakt/webhook", async (req, res) => {
   try {
     console.log("🔔 WEBHOOK PAYLOAD:", JSON.stringify(req.body, null, 2));
 
-    const events = req.body?.events || [];
+    // 1️⃣ Only process incoming customer messages
+    if (req.body.type !== "message_received") {
+      return res.sendStatus(200);
+    }
 
-    for (const evt of events) {
-      if (evt.type !== "message_created") continue;
-      if (evt.message?.direction !== "incoming") continue;
+    const data = req.body.data;
 
-      let phone = evt.message?.from?.phone;
-      phone = normalizePhone(phone);
-      if (!phone) continue;
+    if (data.chat_message_type !== "CustomerMessage") {
+      return res.sendStatus(200);
+    }
 
-      if (!VERIFIED_USERS[phone]) {
-        await interaktRequest.post("", {
-          countryCode: "91",
-          phoneNumber: phone,
-          type: "Template",
-          template: {
-            name: "complete_otp_first",
-            languageCode: "en"
-          }
-        });
-      }
+    // 2️⃣ Get phone number
+    let phone = data.customer?.phone_number;
+    phone = normalizePhone(phone);
+
+    if (!phone) return res.sendStatus(200);
+
+    console.log("📞 Incoming message from:", phone);
+
+    // 3️⃣ If user NOT verified, auto-reply
+    if (!VERIFIED_USERS[phone]) {
+      await interaktRequest.post("", {
+        countryCode: "91",
+        phoneNumber: phone,
+        type: "Template",
+        template: {
+          name: "complete_otp_first",
+          languageCode: "en"
+        }
+      });
+
+      console.log("🚫 Auto-reply sent (OTP not verified)");
     }
 
     res.sendStatus(200);
@@ -162,6 +172,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
 
 
 
+
 // ==============================
 // START SERVER
 // ==============================
@@ -170,6 +181,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
