@@ -58,7 +58,7 @@ app.post("/api/send-otp", async (req, res) => {
           Authorization: process.env.INTERAKT_API_KEY,
           "Content-Type": "application/json"
         },
-        timeout: 10000
+        timeout: 30000
       }
     );
 
@@ -183,3 +183,4 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
