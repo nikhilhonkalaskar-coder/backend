@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import axios from "axios";
 
-
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -14,10 +13,19 @@ const OTP_STORE = {};        // { phone: { otp, expires } }
 const VERIFIED_USERS = {};  // { phone: true }
 
 // ==============================
+// HELPERS
+// ==============================
+const normalizePhone = (phone) => {
+  if (!phone) return null;
+  return phone.startsWith("91") ? phone.slice(2) : phone;
+};
+
+// ==============================
 // SEND OTP
 // ==============================
 app.post("/api/send-otp", async (req, res) => {
-  const { phone } = req.body;
+  let { phone } = req.body;
+  phone = normalizePhone(phone);
 
   if (!/^[6-9]\d{9}$/.test(phone)) {
     return res.status(400).json({
@@ -30,12 +38,11 @@ app.post("/api/send-otp", async (req, res) => {
   const expires = Date.now() + 5 * 60 * 1000;
 
   OTP_STORE[phone] = { otp, expires };
-
   console.log("Generated OTP:", otp);
 
   try {
     await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
+      "https://api.interakt.ai/v1/public/message",
       {
         countryCode: "91",
         phoneNumber: phone,
@@ -43,30 +50,25 @@ app.post("/api/send-otp", async (req, res) => {
         template: {
           name: "otp_verification",
           languageCode: "en",
-          bodyValues: [otp],
-          buttonValues: {
-            "0": [otp]
-          }
+          bodyValues: [otp]
         }
       },
       {
         headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+          Authorization: process.env.INTERAKT_API_KEY,
           "Content-Type": "application/json"
-        }
+        },
+        timeout: 10000
       }
     );
 
-    res.json({
-      success: true,
-      message: "OTP sent successfully"
-    });
+    res.json({ success: true, message: "OTP sent successfully" });
+
   } catch (err) {
     console.error("OTP error:", err.response?.data || err.message);
-
     res.status(500).json({
       success: false,
-      message: "Failed to send OTP"
+      error: err.response?.data || err.message
     });
   }
 });
@@ -75,7 +77,8 @@ app.post("/api/send-otp", async (req, res) => {
 // VERIFY OTP
 // ==============================
 app.post("/api/verify-otp", async (req, res) => {
-  const { phone, otp, name } = req.body;
+  let { phone, otp, name } = req.body;
+  phone = normalizePhone(phone);
 
   const record = OTP_STORE[phone];
 
@@ -95,10 +98,10 @@ app.post("/api/verify-otp", async (req, res) => {
   delete OTP_STORE[phone];
   VERIFIED_USERS[phone] = true;
 
-  // ✅ Send "Chat Unlocked" message
+  // Send "Chat Unlocked" template
   try {
     await axios.post(
-      "https://api.interakt.ai/v1/public/message/",
+      "https://api.interakt.ai/v1/public/message",
       {
         countryCode: "91",
         phoneNumber: phone,
@@ -111,13 +114,13 @@ app.post("/api/verify-otp", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+          Authorization: process.env.INTERAKT_API_KEY,
           "Content-Type": "application/json"
         }
       }
     );
   } catch (e) {
-    console.error("Chat unlocked error:", e.message);
+    console.error("Chat unlocked error:", e.response?.data || e.message);
   }
 
   res.json({
@@ -128,13 +131,11 @@ app.post("/api/verify-otp", async (req, res) => {
 
 // ==============================
 // INTERAKT WEBHOOK
-// Auto-reply if NOT verified
 // ==============================
 app.post("/api/interakt/webhook", async (req, res) => {
   try {
     const event = req.body;
 
-    // Only incoming user messages
     if (
       event.type !== "message" ||
       event.message?.direction !== "incoming"
@@ -142,15 +143,13 @@ app.post("/api/interakt/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const phone = event.message?.from?.phone;
+    let phone = event.message?.from?.phone;
+    phone = normalizePhone(phone);
     if (!phone) return res.sendStatus(200);
 
-    const isVerified = VERIFIED_USERS[phone];
-
-    if (!isVerified) {
-      // 🔒 Not verified → send auto reply
+    if (!VERIFIED_USERS[phone]) {
       await axios.post(
-        "https://api.interakt.ai/v1/public/message/",
+        "https://api.interakt.ai/v1/public/message",
         {
           countryCode: "91",
           phoneNumber: phone,
@@ -162,7 +161,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
         },
         {
           headers: {
-            Authorization: `Basic ${process.env.INTERAKT_API_KEY}`,
+            Authorization: process.env.INTERAKT_API_KEY,
             "Content-Type": "application/json"
           }
         }
@@ -171,7 +170,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.error("Webhook error:", err.message);
+    console.error("Webhook error:", err.response?.data || err.message);
     res.sendStatus(200);
   }
 });
@@ -181,6 +180,6 @@ app.post("/api/interakt/webhook", async (req, res) => {
 // ==============================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
+  console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
-
