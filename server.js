@@ -48,17 +48,22 @@ app.post("/api/send-otp", async (req, res) => {
 
   console.log("Generated OTP:", otp);
 
-  try {
-    await interaktRequest.post("", {
-      countryCode: "91",
-      phoneNumber: phone,
-      type: "Template",
-      template: {
-        name: "otp_verification",
-        languageCode: "en",
-        bodyValues: [otp]
-      }
-    });
+ try {
+    await axios.post(
+      "https://api.interakt.ai/v1/public/message/",
+      {
+        countryCode: "91",
+        phoneNumber: phone,
+        type: "Template",
+        template: {
+          name: "otp_verification",      // MUST MATCH TEMPLATE NAME
+          languageCode: "en",
+          bodyValues: [otp],
+          buttonValues: {
+            "0": [otp]                  // 👈 REQUIRED FORMAT
+          }
+        }
+      },
 
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
@@ -141,4 +146,5 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
