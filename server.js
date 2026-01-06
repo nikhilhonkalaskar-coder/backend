@@ -74,7 +74,7 @@ app.post("/api/send-otp", async (req, res) => {
 // VERIFY OTP
 // ==============================
 app.post("/api/verify-otp", async (req, res) => {
-  let { phone, otp, name } = req.body;
+  let { phone, otp, name, email, city } = req.body;
   phone = normalizePhone(phone);
 
   const record = OTP_STORE[phone];
@@ -100,8 +100,28 @@ app.post("/api/verify-otp", async (req, res) => {
     console.error("Chat unlocked error:", err.response?.data || err.message);
   }
 
-  res.json({ verified: true, message: "OTP verified successfully" });
+  // 👇 WhatsApp pre-filled message for redirect
+  const message = `
+*Tushar Bhumkar Institute*
+
+*Verified Lead*
+Name: ${name}
+Mobile: ${phone}
+Email: ${email || "N/A"}
+City: ${city || "N/A"}
+`;
+
+  const redirectUrl =
+    `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=` +
+    encodeURIComponent(message);
+
+  res.json({
+    verified: true,
+    message: "OTP verified successfully",
+    redirectUrl
+  });
 });
+
 
 // ==============================
 // INTERAKT WEBHOOK
@@ -136,6 +156,7 @@ app.post("/api/interakt/webhook", async (req, res) => {
   }
 });
 
+
 // ==============================
 // START SERVER
 // ==============================
@@ -144,4 +165,5 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
