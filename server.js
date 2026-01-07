@@ -101,8 +101,7 @@ app.post("/api/verify-otp", async (req, res) => {
   }
 
   const redirectUrl =
-    `https://www.tusharbhumkar.com/` +
-    encodeURIComponent(message);
+    `https://www.tusharbhumkar.com/`;
 
   res.json({ verified: true, redirectUrl });
 });
@@ -145,4 +144,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("✅ Server running on port", PORT);
 });
+
 
