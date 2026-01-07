@@ -85,57 +85,13 @@ app.post("/api/verify-otp", async (req, res) => {
   delete OTP_STORE[phone];
   VERIFIED_USERS[phone] = true;
 
-  try {
-    await interaktRequest.post("", {
-      countryCode: "91",
-      phoneNumber: phone,
-      type: "Template",
-      template: {
-        name: "chat_unlocked",
-        languageCode: "en",
-        bodyValues: [name || "there"]
-      }
-    });
-  } catch (err) {
-    console.error("Unlock msg error:", err.message);
-  }
-
   const redirectUrl =
     `https://www.tusharbhumkar.com/`;
 
   res.json({ verified: true, redirectUrl });
 });
 
-// ==============================
-// INTERAKT WEBHOOK
-// ==============================
-app.post("/api/interakt/webhook", async (req, res) => {
-  try {
-    if (req.body.type !== "message_received") return res.sendStatus(200);
 
-    const data = req.body.data;
-    if (data.chat_message_type !== "CustomerMessage") return res.sendStatus(200);
-
-    const fullPhone = data.customer?.channel_phone_number; // 919XXXXXXXXX
-    const shortPhone = normalizePhone(fullPhone);
-
-    if (!VERIFIED_USERS[shortPhone]) {
-      await interaktRequest.post("", {
-        countryCode: "91",
-        phoneNumber: shortPhone,
-        type: "Text",
-        text: {
-          body: "⚠️ Please verify OTP on the website to continue chatting."
-        }
-      });
-    }
-
-    res.sendStatus(200);
-  } catch (err) {
-    console.error("Webhook error:", err.message);
-    res.sendStatus(200);
-  }
-});
 
 // ==============================
 // START SERVER
@@ -144,5 +100,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("✅ Server running on port", PORT);
 });
+
 
 
