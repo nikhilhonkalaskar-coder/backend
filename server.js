@@ -100,17 +100,8 @@ app.post("/api/verify-otp", async (req, res) => {
     console.error("Unlock msg error:", err.message);
   }
 
-  const message = `
-*Tushar Bhumkar Institute*
-
-Name: ${name}
-Mobile: ${phone}
-Email: ${email || "N/A"}
-City: ${city || "N/A"}
-`;
-
   const redirectUrl =
-    `https://wa.me/${process.env.WHATSAPP_CHAT_NUMBER}?text=` +
+    `https://www.tusharbhumkar.com/` +
     encodeURIComponent(message);
 
   res.json({ verified: true, redirectUrl });
@@ -154,3 +145,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("✅ Server running on port", PORT);
 });
+
