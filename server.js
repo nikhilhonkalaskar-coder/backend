@@ -74,7 +74,7 @@ app.post("/api/send-otp", async (req, res) => {
 // VERIFY OTP
 // ==============================
 app.post("/api/verify-otp", async (req, res) => {
-  let { phone, otp, name, email, city } = req.body;
+  let { mobileno, otp, mobileno, email, address } = req.body;
   phone = normalizePhone(phone);
 
   const record = OTP_STORE[phone];
@@ -104,10 +104,10 @@ app.post("/api/verify-otp", async (req, res) => {
   const message = `
 *Tushar Bhumkar Institute*
 
-Name: ${name}
-Mobile: ${phone}
+Name: ${fullname}
+Mobile: ${mobileno}
 Email: ${email || "N/A"}
-City: ${city || "N/A"}
+City: ${address || "N/A"}
 `;
 
   const redirectUrl =
@@ -182,6 +182,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
