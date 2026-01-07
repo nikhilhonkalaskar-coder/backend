@@ -34,14 +34,14 @@ const interaktRequest = axios.create({
 // ==============================
 app.post("/api/send-otp", async (req, res) => {
   let { phone } = req.body;
-  phone = normalizePhone(phone);
+  phone = normalizePhone(mobileno);
 
-  if (!/^[6-9]\d{9}$/.test(phone)) {
+  if (!/^[6-9]\d{9}$/.test(mobileno)) {
     return res.status(400).json({ success: false, message: "Invalid mobile number" });
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  OTP_STORE[phone] = {
+  OTP_STORE[mobileno] = {
     otp,
     expires: Date.now() + 5 * 60 * 1000
   };
@@ -51,7 +51,7 @@ app.post("/api/send-otp", async (req, res) => {
   try {
     await interaktRequest.post("", {
       countryCode: "91",
-      phoneNumber: phone,
+      phoneNumber: mobileno,
       type: "Template",
       template: {
         name: "otp_verification", // MUST MATCH TEMPLATE NAME
@@ -75,15 +75,15 @@ app.post("/api/send-otp", async (req, res) => {
 // ==============================
 app.post("/api/verify-otp", async (req, res) => {
   let { mobileno, otp, fullname, email, address } = req.body;
-  phone = normalizePhone(phone);
+  phone = normalizePhone(mobileno);
 
-  const record = OTP_STORE[phone];
+  const record = OTP_STORE[mobileno];
   if (!record) return res.json({ verified: false, message: "OTP not found" });
   if (Date.now() > record.expires) return res.json({ verified: false, message: "OTP expired" });
   if (record.otp !== otp) return res.json({ verified: false, message: "Wrong OTP" });
 
-  delete OTP_STORE[phone];
-  VERIFIED_USERS[phone] = true;
+  delete OTP_STORE[mobileno];
+  VERIFIED_USERS[mobileno] = true;
 
   try {
     await interaktRequest.post("", {
@@ -182,6 +182,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
