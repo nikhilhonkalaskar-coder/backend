@@ -74,7 +74,7 @@ app.post("/api/send-otp", async (req, res) => {
 // VERIFY OTP
 // ==============================
 app.post("/api/verify-otp", async (req, res) => {
-  let { mobileno, otp, mobileno, email, address } = req.body;
+  let { mobileno, otp, fullname, email, address } = req.body;
   phone = normalizePhone(phone);
 
   const record = OTP_STORE[phone];
@@ -182,6 +182,7 @@ app.listen(PORT, () => {
   console.log("INTERAKT KEY LOADED:", !!process.env.INTERAKT_API_KEY);
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
 
 
