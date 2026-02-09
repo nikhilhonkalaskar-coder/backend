@@ -1,10 +1,7 @@
 import express from 'express';
-import crypto from 'crypto';
 import cors from 'cors';
 import axios from 'axios';
 import { Pool } from 'pg';
-// import { config } from 'dotenv'; // <-- CORRECTED IMPORT
-
 
 const app = express();
 
@@ -12,7 +9,7 @@ const app = express();
    CORS (NODE 22 SAFE)
 ========================= */
 app.use(cors({
-  origin: '*',
+  origin: '*', // In production, restrict this to your domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -31,20 +28,20 @@ const pool = new Pool({
   user: process.env.PG_USER,
   password: process.env.PG_PASS,
   port: 5432,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false }, // Required for many cloud DB providers
 });
 
 /* =========================
-   In-memory stores (use DB later)
+   In-memory stores for OTPs
 ========================= */
 const OTP_STORE = {};
-const VERIFIED_USERS = {};
 
 /* =========================
    Helpers
 ========================= */
 const normalizePhone = (phone) => {
   if (!phone) return null;
+  // Remove "91" prefix if it exists, otherwise keep as is
   return phone.startsWith("91") ? phone.slice(2) : phone;
 };
 
@@ -71,10 +68,10 @@ app.post("/api/send-otp", async (req, res) => {
 
   OTP_STORE[phone] = {
     otp,
-    expires: Date.now() + 5 * 60 * 1000
+    expires: Date.now() + 5 * 60 * 1000 // 5 minutes expiry
   };
 
-  console.log("📨 OTP:", otp);
+  console.log(`📨 OTP for ${phone}: ${otp}`);
 
   try {
     await interaktRequest.post("", {
@@ -82,106 +79,58 @@ app.post("/api/send-otp", async (req, res) => {
       phoneNumber: phone,
       type: "Template",
       template: {
-        name: "otp_verification",
+        name: "otp_verification", // Make sure this template exists in Interakt
         languageCode: "en",
         bodyValues: [otp],
         buttonValues: {
-          "0": [otp]
+          "0": [otp] // For OTP button
         }
       }
     });
 
-    res.json({ success: true });
+    res.json({ success: true, message: "OTP sent successfully." });
   } catch (err) {
-    console.error("OTP error:", err.response?.data || err.message);
-    res.status(500).json({ success: false });
+    console.error("OTP sending error:", err.response?.data || err.message);
+    res.status(500).json({ success: false, message: "Failed to send OTP." });
   }
 });
 
 /* =========================
-   VERIFY OTP
+   VERIFY OTP & SAVE CLIENT (MODIFIED)
 ========================= */
 app.post("/api/verify-otp", async (req, res) => {
   let { phone, otp, name, email, city } = req.body;
   phone = normalizePhone(phone);
 
   const record = OTP_STORE[phone];
-  if (!record) return res.json({ verified: false, message: "OTP not found" });
-  if (Date.now() > record.expires) return res.json({ verified: false, message: "OTP expired" });
-  if (record.otp !== otp) return res.json({ verified: false, message: "Wrong OTP" });
+  if (!record) return res.status(400).json({ verified: false, message: "OTP not found or session expired." });
+  if (Date.now() > record.expires) {
+    delete OTP_STORE[phone]; // Clean up expired OTP
+    return res.status(400).json({ verified: false, message: "OTP has expired." });
+  }
+  if (record.otp !== otp) return res.status(400).json({ verified: false, message: "Incorrect OTP." });
 
-  delete OTP_STORE[phone];
-  VERIFIED_USERS[phone] = true;
-
-  res.json({ verified: true,});
-});
-
-/* =========================
-   SAVE CLIENT TO DB AND REDIRECT
-========================= */
-app.post('/api/save-client', async (req, res) => {
+  // OTP is valid, now save the client to the database
   try {
-    const {
-      name,
-      phone,
-      email,
-      city,
-      redirectUrl
-    } = req.body;
-
     const result = await pool.query(
-      `INSERT INTO clients
-       (name, phone, email, city)
-       VALUES ($1,$2,$3,$4)
-       RETURNING id`,
-      [
-        name,
-        phone,
-        email,
-        city
-      ]
+      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING RETURNING id`,
+      [name, phone, email, city]
     );
+    
+    // Clean up the used OTP
+    delete OTP_STORE[phone];
 
+    // Respond with success
     const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
-    const finalRedirectUrl = redirectUrl || defaultRedirectUrl;
-
-    res.json({ 
-      success: true, 
-      id: result.rows[0].id,
-      redirectUrl: finalRedirectUrl
+    res.json({
+      verified: true,
+      message: "Verified! Submitted successfully.",
+      redirectUrl: defaultRedirectUrl
     });
 
   } catch (err) {
-    console.error('Save client error:', err);
-    res.status(500).json({ error: 'Internal error' });
-  }
-});
-
-/* =========================
-   REDIRECT ENDPOINT
-========================= */
-app.get('/redirect/:clientId', async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { url } = req.query;
-    
-    const clientResult = await pool.query(
-      'SELECT id, name FROM clients WHERE id = $1',
-      [clientId]
-    );
-    
-    if (clientResult.rows.length === 0) {
-      return res.status(404).send('Client not found');
-    }
-    
-    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
-    
-    console.log(`Redirecting client ${clientId} to: ${redirectUrl}`);
-    res.redirect(redirectUrl);
-    
-  } catch (err) {
-    console.error('Redirect error:', err);
-    res.status(500).send('Internal server error');
+    console.error('Database save error:', err);
+    res.status(500).json({ verified: false, message: "Could not save your details. Please try again." });
   }
 });
 
@@ -192,4 +141,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
-
