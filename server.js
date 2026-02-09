@@ -1,9 +1,13 @@
 // require('dotenv').config();
-const express = require('express');
-const crypto = require('crypto');
-const cors = require('cors');
-const axios = require('axios');
-const { Pool } = require('pg');
+import express from 'express';
+import crypto from 'crypto';
+import cors from 'cors';
+import axios from 'axios';
+import { Pool } from 'pg';
+// import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 
@@ -142,7 +146,7 @@ app.post('/api/save-client', async (req, res) => {
     );
 
     // Default redirect URL or use custom one from request
-    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
+    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
     const finalRedirectUrl = redirectUrl || defaultRedirectUrl;
 
     res.json({ 
@@ -176,7 +180,7 @@ app.get('/redirect/:clientId', async (req, res) => {
     }
     
     // Redirect to the specified URL or default
-    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
+    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
     
     console.log(`Redirecting client ${clientId} to: ${redirectUrl}`);
     res.redirect(redirectUrl);
