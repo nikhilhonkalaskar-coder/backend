@@ -142,7 +142,7 @@ app.post('/api/save-client', async (req, res) => {
       ]
     );
 
-    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
+    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
     const finalRedirectUrl = redirectUrl || defaultRedirectUrl;
 
     res.json({ 
@@ -174,7 +174,7 @@ app.get('/redirect/:clientId', async (req, res) => {
       return res.status(404).send('Client not found');
     }
     
-    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
+    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
     
     console.log(`Redirecting client ${clientId} to: ${redirectUrl}`);
     res.redirect(redirectUrl);
@@ -192,3 +192,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
