@@ -99,7 +99,7 @@ app.post("/api/verify-otp", async (req, res, next) => {
     
     delete OTP_STORE[phone];
 
-    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
+    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://google.tusharbhumkarinstitute.com/';
     res.json({ verified: true, message: "Verified! Submitted successfully.", redirectUrl: defaultRedirectUrl });
 
   } catch (err) {
@@ -121,4 +121,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
 
