@@ -111,9 +111,14 @@ app.post("/api/verify-otp", async (req, res) => {
   if (record.otp !== otp) return res.status(400).json({ verified: false, message: "Incorrect OTP." });
 
   // OTP is valid, now save the client to the database
-  try {
+// In your /api/verify-otp endpoint
+
+// ... (after OTP is validated)
+
+try {
+    // Simple INSERT without ON CONFLICT
     const result = await pool.query(
-      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING RETURNING id`,
+      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) RETURNING id`,
       [name, phone, email, city]
     );
     
@@ -130,9 +135,15 @@ app.post("/api/verify-otp", async (req, res) => {
 
   } catch (err) {
     console.error('Database save error:', err);
-    res.status(500).json({ verified: false, message: "Could not save your details. Please try again." });
+    
+    // Check for the specific duplicate key error code
+    if (err.code === '23505') { // 23505 is the code for unique_violation
+        res.status(409).json({ verified: false, message: "This phone number has already been registered." });
+    } else {
+        // Handle other potential database errors
+        res.status(500).json({ verified: false, message: "Could not save your details. Please try again." });
+    }
   }
-});
 
 /* =========================
    START SERVER
@@ -141,3 +152,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
