@@ -1,13 +1,10 @@
-// require('dotenv').config();
 import express from 'express';
 import crypto from 'crypto';
 import cors from 'cors';
 import axios from 'axios';
 import { Pool } from 'pg';
-// import dotenv from 'dotenv';
+// import { config } from 'dotenv'; // <-- CORRECTED IMPORT
 
-// Load environment variables
-dotenv.config();
 
 const app = express();
 
@@ -128,8 +125,8 @@ app.post('/api/save-client', async (req, res) => {
       name,
       phone,
       email,
-      city, // ADDED
-      redirectUrl // Optional: custom redirect URL from request
+      city,
+      redirectUrl
     } = req.body;
 
     const result = await pool.query(
@@ -141,11 +138,10 @@ app.post('/api/save-client', async (req, res) => {
         name,
         phone,
         email,
-        city // ADDED
+        city
       ]
     );
 
-    // Default redirect URL or use custom one from request
     const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
     const finalRedirectUrl = redirectUrl || defaultRedirectUrl;
 
@@ -169,7 +165,6 @@ app.get('/redirect/:clientId', async (req, res) => {
     const { clientId } = req.params;
     const { url } = req.query;
     
-    // Verify client exists in DB
     const clientResult = await pool.query(
       'SELECT id, name FROM clients WHERE id = $1',
       [clientId]
@@ -179,7 +174,6 @@ app.get('/redirect/:clientId', async (req, res) => {
       return res.status(404).send('Client not found');
     }
     
-    // Redirect to the specified URL or default
     const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://your-default-success-page.com';
     
     console.log(`Redirecting client ${clientId} to: ${redirectUrl}`);
