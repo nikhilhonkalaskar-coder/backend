@@ -91,27 +91,27 @@ app.post("/api/verify-otp", async (req, res, next) => {
   if (record.otp !== otp) return res.status(400).json({ verified: false, message: "Incorrect OTP." });
 
   try {
-    await pool.query(
-      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING`,
+    // Simple INSERT without ON CONFLICT
+    const result = await pool.query(
+      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) RETURNING id`,
       [name, phone, email, city]
     );
+    
     delete OTP_STORE[phone];
+
     const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
     res.json({ verified: true, message: "Verified! Submitted successfully.", redirectUrl: defaultRedirectUrl });
+
   } catch (err) {
     console.error('Database save error:', err);
-    // Pass the error to the central error handler
-    next(err);
+    // Check for the specific duplicate key error code
+    if (err.code === '23505') { // 23505 is the code for unique_violation
+        res.status(409).json({ verified: false, message: "This phone number has already been registered." });
+    } else {
+        // Pass any other error to the central handler
+        next(err);
+    }
   }
-});
-
-/* =========================
-   CENTRAL ERROR HANDLING MIDDLEWARE (IMPORTANT)
-========================= */
-// This catches all errors passed to `next(err)` and logs them.
-app.use((err, req, res, next) => {
-  console.error("Unhandled Error:", err);
-  res.status(500).json({ success: false, verified: false, message: 'An internal server error occurred.' });
 });
 
 /* =========================
@@ -121,3 +121,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
