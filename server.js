@@ -110,13 +110,10 @@ app.post("/api/verify-otp", async (req, res) => {
   }
   if (record.otp !== otp) return res.status(400).json({ verified: false, message: "Incorrect OTP." });
 
-  
-
-// ... (after OTP is validated)
-try {
-    // Simple INSERT without ON CONFLICT
+  // OTP is valid, now save the client to the database
+  try {
     const result = await pool.query(
-      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) RETURNING id`,
+      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING RETURNING id`,
       [name, phone, email, city]
     );
     
@@ -133,8 +130,11 @@ try {
 
   } catch (err) {
     console.error('Database save error:', err);
+    res.status(500).json({ verified: false, message: "Could not save your details. Please try again." });
   }
-}
+});
+
+
 /* =========================
    START SERVER
 ========================= */
@@ -143,5 +143,4 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
 
-
-
+// End of file
