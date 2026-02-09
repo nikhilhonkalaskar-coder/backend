@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 const app = express();
 
 /* =========================
-   CORS (NODE 22 SAFE)
+   Middleware
 ========================= */
 app.use(cors({
   origin: '*', // In production, restrict this to your domain
@@ -14,9 +14,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-/* =========================
-   JSON FOR NORMAL APIs
-========================= */
 app.use(express.json());
 
 /* =========================
@@ -28,7 +25,7 @@ const pool = new Pool({
   user: process.env.PG_USER,
   password: process.env.PG_PASS,
   port: 5432,
-  ssl: { rejectUnauthorized: false }, // Required for many cloud DB providers
+  ssl: { rejectUnauthorized: false },
 });
 
 /* =========================
@@ -41,7 +38,6 @@ const OTP_STORE = {};
 ========================= */
 const normalizePhone = (phone) => {
   if (!phone) return null;
-  // Remove "91" prefix if it exists, otherwise keep as is
   return phone.startsWith("91") ? phone.slice(2) : phone;
 };
 
@@ -54,9 +50,9 @@ const interaktRequest = axios.create({
 });
 
 /* =========================
-   SEND OTP
+   API Routes
 ========================= */
-app.post("/api/send-otp", async (req, res) => {
+app.post("/api/send-otp", async (req, res, next) => {
   let { phone } = req.body;
   phone = normalizePhone(phone);
 
@@ -65,75 +61,58 @@ app.post("/api/send-otp", async (req, res) => {
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-  OTP_STORE[phone] = {
-    otp,
-    expires: Date.now() + 5 * 60 * 1000 // 5 minutes expiry
-  };
-
+  OTP_STORE[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
   console.log(`📨 OTP for ${phone}: ${otp}`);
 
   try {
     await interaktRequest.post("", {
-      countryCode: "91",
-      phoneNumber: phone,
-      type: "Template",
-      template: {
-        name: "otp_verification", // Make sure this template exists in Interakt
-        languageCode: "en",
-        bodyValues: [otp],
-        buttonValues: {
-          "0": [otp] // For OTP button
-        }
+      countryCode: "91", phoneNumber: phone, type: "Template", template: {
+        name: "otp_verification", languageCode: "en", bodyValues: [otp], buttonValues: { "0": [otp] }
       }
     });
-
     res.json({ success: true, message: "OTP sent successfully." });
   } catch (err) {
     console.error("OTP sending error:", err.response?.data || err.message);
-    res.status(500).json({ success: false, message: "Failed to send OTP." });
+    // Pass the error to the central error handler
+    next(err);
   }
 });
 
-/* =========================
-   VERIFY OTP & SAVE CLIENT (MODIFIED)
-========================= */
-app.post("/api/verify-otp", async (req, res) => {
+app.post("/api/verify-otp", async (req, res, next) => {
   let { phone, otp, name, email, city } = req.body;
   phone = normalizePhone(phone);
-
   const record = OTP_STORE[phone];
+
   if (!record) return res.status(400).json({ verified: false, message: "OTP not found or session expired." });
   if (Date.now() > record.expires) {
-    delete OTP_STORE[phone]; // Clean up expired OTP
+    delete OTP_STORE[phone];
     return res.status(400).json({ verified: false, message: "OTP has expired." });
   }
   if (record.otp !== otp) return res.status(400).json({ verified: false, message: "Incorrect OTP." });
 
-  // OTP is valid, now save the client to the database
   try {
-    const result = await pool.query(
-      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING RETURNING id`,
+    await pool.query(
+      `INSERT INTO clients (name, phone, email, city) VALUES ($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING`,
       [name, phone, email, city]
     );
-    
-    // Clean up the used OTP
     delete OTP_STORE[phone];
-
-    // Respond with success
     const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
-    res.json({
-      verified: true,
-      message: "Verified! Submitted successfully.",
-      redirectUrl: defaultRedirectUrl
-    });
-
+    res.json({ verified: true, message: "Verified! Submitted successfully.", redirectUrl: defaultRedirectUrl });
   } catch (err) {
     console.error('Database save error:', err);
-    res.status(500).json({ verified: false, message: "Could not save your details. Please try again." });
+    // Pass the error to the central error handler
+    next(err);
   }
 });
 
+/* =========================
+   CENTRAL ERROR HANDLING MIDDLEWARE (IMPORTANT)
+========================= */
+// This catches all errors passed to `next(err)` and logs them.
+app.use((err, req, res, next) => {
+  console.error("Unhandled Error:", err);
+  res.status(500).json({ success: false, verified: false, message: 'An internal server error occurred.' });
+});
 
 /* =========================
    START SERVER
@@ -142,5 +121,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
-
-// End of file
