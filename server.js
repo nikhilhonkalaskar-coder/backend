@@ -1,20 +1,47 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
+// require('dotenv').config();
+const express = require('express');
+const crypto = require('crypto');
+const cors = require('cors');
+const axios = require('axios');
+const { Pool } = require('pg');
 
 const app = express();
-app.use(cors());
+
+/* =========================
+   CORS (NODE 22 SAFE)
+========================= */
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+/* =========================
+   JSON FOR NORMAL APIs
+========================= */
 app.use(express.json());
 
-// ==============================
-// In-memory stores (use DB later)
-// ==============================
+/* =========================
+   POSTGRESQL POOL
+========================= */
+const pool = new Pool({
+  host: process.env.PG_HOST,
+  database: process.env.PG_DB,
+  user: process.env.PG_USER,
+  password: process.env.PG_PASS,
+  port: 5432,
+  ssl: { rejectUnauthorized: false },
+});
+
+/* =========================
+   In-memory stores (use DB later)
+========================= */
 const OTP_STORE = {};
 const VERIFIED_USERS = {};
 
-// ==============================
-// Helpers
-// ==============================
+/* =========================
+   Helpers
+========================= */
 const normalizePhone = (phone) => {
   if (!phone) return null;
   return phone.startsWith("91") ? phone.slice(2) : phone;
@@ -28,9 +55,9 @@ const interaktRequest = axios.create({
   }
 });
 
-// ==============================
-// SEND OTP
-// ==============================
+/* =========================
+   SEND OTP
+========================= */
 app.post("/api/send-otp", async (req, res) => {
   let { phone } = req.body;
   phone = normalizePhone(phone);
@@ -70,9 +97,9 @@ app.post("/api/send-otp", async (req, res) => {
   }
 });
 
-// ==============================
-// VERIFY OTP
-// ==============================
+/* =========================
+   VERIFY OTP
+========================= */
 app.post("/api/verify-otp", async (req, res) => {
   let { phone, otp, name, email, city } = req.body;
   phone = normalizePhone(phone);
@@ -85,21 +112,85 @@ app.post("/api/verify-otp", async (req, res) => {
   delete OTP_STORE[phone];
   VERIFIED_USERS[phone] = true;
 
-  const redirectUrl =
-    `https://www.tusharbhumkar.com/`;
-
-  res.json({ verified: true, redirectUrl });
+  res.json({ verified: true,});
 });
 
+/* =========================
+   SAVE CLIENT TO DB AND REDIRECT
+========================= */
+app.post('/api/save-client', async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      email,
+      city, // ADDED
+      redirectUrl // Optional: custom redirect URL from request
+    } = req.body;
 
+    const result = await pool.query(
+      `INSERT INTO clients
+       (name, phone, email, city)
+       VALUES ($1,$2,$3,$4)
+       RETURNING id`,
+      [
+        name,
+        phone,
+        email,
+        city // ADDED
+      ]
+    );
 
-// ==============================
-// START SERVER
-// ==============================
+    // Default redirect URL or use custom one from request
+    const defaultRedirectUrl = process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
+    const finalRedirectUrl = redirectUrl || defaultRedirectUrl;
+
+    res.json({ 
+      success: true, 
+      id: result.rows[0].id,
+      redirectUrl: finalRedirectUrl
+    });
+
+  } catch (err) {
+    console.error('Save client error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+/* =========================
+   REDIRECT ENDPOINT
+========================= */
+app.get('/redirect/:clientId', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { url } = req.query;
+    
+    // Verify client exists in DB
+    const clientResult = await pool.query(
+      'SELECT id, name FROM clients WHERE id = $1',
+      [clientId]
+    );
+    
+    if (clientResult.rows.length === 0) {
+      return res.status(404).send('Client not found');
+    }
+    
+    // Redirect to the specified URL or default
+    const redirectUrl = url || process.env.DEFAULT_REDIRECT_URL || 'https://www.tusharbhumkar.com/';
+    
+    console.log(`Redirecting client ${clientId} to: ${redirectUrl}`);
+    res.redirect(redirectUrl);
+    
+  } catch (err) {
+    console.error('Redirect error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+/* =========================
+   START SERVER
+========================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log("✅ Server running on port", PORT);
+  console.log(`✅ Server running on port ${PORT}`);
 });
-
-
-
